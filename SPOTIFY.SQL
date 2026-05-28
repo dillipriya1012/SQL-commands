@@ -569,4 +569,71 @@ LIMIT 10;
  play_count,
  RANK()OVER (ORDER BY play_count DESC) AS song_rank
  FROM songs;
+#top songs using genre
+SELECT*FROM(
+SELECT
+a.genre,
+s.song_name,
+s.play_count,
+ROW_NUMBER()OVER(
+PARTITION BY a.genre
+ORDER BY s.play_count DESC)AS rn
+FROM songs s
+JOIN artists a
+ON s.artist_id=a.artist_id
+)ranked
+WHERE rn=1;
+#running total streams
+SELECT 
+     DATE(listened_at) as listen_date,
+     count(*) as daily_streams,
+     sum(count(*)) over(
+		order by date(listened_at)
+        ) as running_total
+from listening_history
+group by listen_date;
+#users who like similar songs
+SELECT 
+lh1.user_id AS user1,
+lh2.user_id AS user2,
+COUNT(*)AS common_songs
+FROM listening_history lh1
+JOIN listening_history lh2
+ON lh1.song_id=lh2.song_id 
+AND lh1.user_id < lh2.user_id
+GROUP BY user1,user2
+HAVING common_songs >=5
+ORDER BY common_songs DESC;
+#Recommended trending songs
+SELECT
+    s.song_name,
+    COUNT(lh.history_id) as recent_streams
+FROM songs s
+JOIN listening_history lh
+ON s.song_id = lh.song_id
+WHERE lh.listened_at >= Now() -INTERVAL 7 DAY
+GROUP BY s.song_id
+ORDER BY recent_streams DESC
+LIMIT 10;
+#low user engagement
+SELECT 
+	user_id,
+	COUNT(*) AS Total_streams
+FROM listening_history
+GROUP BY user_id
+HAVING Total_streams < 5;
+#subscription drop
+select
+	MONTH(end_date) as month,
+    COUNT(*) AS expired_subscriptions
+FROM SUBSCRIPTIONS
+GROUP BY MONTH(end_date); 
+#kpi metrics
+SELECT
+	COUNT(DISTINCT user_id) AS Total_users,
+    COUNT(DISTINCT song_id) AS Total_songs_streamed,
+    COUNT(*) AS Total_streams,
+    ROUND(AVG(minutes_played),2) AS AVG_listening_time
+FROM listening_history;
+
 
